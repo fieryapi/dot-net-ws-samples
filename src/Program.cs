@@ -1,6 +1,6 @@
 ﻿namespace EFI.FieryEventsSample
 {
-    using Newtonsoft.Json.Linq;
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
     using System.Net;
@@ -35,6 +35,11 @@
         private static string password = "the_password";
 
         /// <summary>
+        /// The mutex to signal websocket open, close or error events
+        /// </summary>
+        private static AutoResetEvent mutex = new AutoResetEvent(false);
+
+        /// <summary>
         /// The websocket object
         /// </summary>
         private static WebSocket ws;
@@ -42,8 +47,12 @@
         /// <summary>
         /// Event listener to be called when the wbsocket connection is closed
         /// </summary>
-        private static void OnClose(object sender, EventArgs e)
+        /// <param name="sender">The wbsocket object.</param>
+        /// <param name="eventArgs">The arguments of the close event.</param>
+        private static void OnClose(object sender, EventArgs eventArgs)
         {
+            mutex.Set();
+
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine();
             Console.WriteLine("websocket connection closed");
@@ -53,30 +62,40 @@
         /// <summary>
         /// Event listener to be called when a wbsocket error occurs
         /// </summary>
-        private static void OnError(object sender, SuperSocket.ClientEngine.ErrorEventArgs e)
+        /// <param name="sender">The wbsocket object.</param>
+        /// <param name="eventArgs">The arguments of the error event.</param>
+        private static void OnError(object sender, SuperSocket.ClientEngine.ErrorEventArgs eventArgs)
         {
+            mutex.Set();
+
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine();
-            Console.WriteLine(e.Exception.GetType() + ": " + e.Exception.Message);
+            Console.WriteLine(eventArgs.Exception.GetType() + ": " + eventArgs.Exception.Message);
             Console.ResetColor();
         }
 
         /// <summary>
         /// Event listener to be called when a message received from the server
         /// </summary>
-        private static void OnMessage(object sender, MessageReceivedEventArgs e)
+        /// <param name="sender">The wbsocket object.</param>
+        /// <param name="eventArgs">The arguments of the message received event.</param>
+        private static void OnMessage(object sender, MessageReceivedEventArgs eventArgs)
         {
             Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine();
-            Console.WriteLine(e.Message);
+            Console.WriteLine(eventArgs.Message);
             Console.ResetColor();
         }
 
         /// <summary>
         /// Event listener to be called when a new wbsocket connection is opened
         /// </summary>
-        private static void OnOpen(object sender, EventArgs e)
+        /// <param name="sender">The wbsocket object.</param>
+        /// <param name="eventArgs">The arguments of the open event.</param>
+        private static void OnOpen(object sender, EventArgs eventArgs)
         {
+            mutex.Set();
+
             Console.ForegroundColor = ConsoleColor.DarkGreen;
             Console.WriteLine();
             Console.WriteLine("new websocket connection is opened");
@@ -95,19 +114,25 @@
             Console.ResetColor();
 
             // Ignore all events except device events
-            ws.Send("{" +
-                      "\"jsonrpc\": \"2.0\", " +
-                      "\"method\": \"ignore\", " +
-                      "\"params\": [\"accounting\", \"job\", \"jobprogress\", \"preset\", \"property\", \"queue\", \"recpreset\"], " +
-                      "\"id\": 1" +
-                    "}");
+            var ignoreAllEventsExceptDevice = new
+            {
+                jsonrpc = "2.0",
+                method = "ignore",
+                @params = new[] { "accounting", "job", "jobprogress", "preset", "property", "queue" },
+                id = 1
+            };
+            ws.Send(JsonConvert.SerializeObject(ignoreAllEventsExceptDevice));
+
             // Receive device events
-            ws.Send("{" +
-                      "\"jsonrpc\": \"2.0\", " +
-                      "\"method\": \"receive\", " +
-                      "\"params\": \"device\", " +
-                      "\"id\": 2" +
-                    "}");
+            var receiveDeviceEvents = new
+            {
+                jsonrpc = "2.0",
+                method = "receive",
+                @params = new[] { "device" },
+                id = 2
+            };
+            ws.Send(JsonConvert.SerializeObject(receiveDeviceEvents));
+
             Console.ReadLine();
         }
 
@@ -123,31 +148,43 @@
             Console.ResetColor();
 
             // Ignore all events except job events
-            ws.Send("{" +
-                      "\"jsonrpc\": \"2.0\", " +
-                      "\"method\": \"ignore\", " +
-                      "\"params\": [\"accounting\", \"device\", \"jobprogress\", \"preset\", \"property\", \"queue\", \"recpreset\"], " +
-                      "\"id\": 1" +
-                    "}");
+            var ignoreAllEventsExceptJob = new
+            {
+                jsonrpc = "2.0",
+                method = "ignore",
+                @params = new[] { "accounting", "device", "jobprogress", "preset", "property", "queue" },
+                id = 1
+            };
+            ws.Send(JsonConvert.SerializeObject(ignoreAllEventsExceptJob));
 
             // Receive job events
-            ws.Send("{" +
-                      "\"jsonrpc\": \"2.0\", " +
-                      "\"method\": \"receive\", " +
-                      "\"params\": \"job\", " +
-                      "\"id\": 2" +
-                    "}");
+            var receiveJobEvents = new
+            {
+                jsonrpc = "2.0",
+                method = "receive",
+                @params = new[] { "job" },
+                id = 2
+            };
+            ws.Send(JsonConvert.SerializeObject(receiveJobEvents));
+
             // Receive job events only if they contain <is printing?> key in the <attributes> key
-            ws.Send("{" +
-                      "\"jsonrpc\": \"2.0\", " +
-                      "\"method\": \"filter\", " +
-                      "\"params\": {" +
-                                    "\"eventKind\": \"job\", " +
-                                    "\"mode\": \"add\", " +
-                                    "\"attr\": {\"attributes\": \"is printing?\"}" +
-                                  "}," +
-                      "\"id\": 3" +
-                    "}");
+            var receiveIsPrintingEvents = new
+            {
+                jsonrpc = "2.0",
+                method = "filter",
+                @params = new
+                {
+                    eventKind = "job",
+                    mode = "add",
+                    attr = new
+                    {
+                        attributes = "is printing?",
+                    },
+                },
+                id = 3,
+            };
+            ws.Send(JsonConvert.SerializeObject(receiveIsPrintingEvents));
+
             Console.ReadLine();
         }
 
@@ -162,35 +199,39 @@
             Console.WriteLine("Press <Enter> when you want to run next scenario");
             Console.ResetColor();
 
-            ws.Send("[" +
+            var commandsInBatchMode = new object[] {
                 // Ignore all events except job events
-                      "{" +
-                        "\"jsonrpc\": \"2.0\", " +
-                        "\"method\": \"ignore\", " +
-                        "\"params\": [\"accounting\", \"device\", \"jobprogress\", \"preset\", \"property\", \"queue\", \"recpreset\"], " +
-                        "\"id\": 1" +
-                      "}, " +
+                new {
+                    jsonrpc = "2.0",
+                    method = "ignore",
+                    @params = new[] { "accounting", "device", "jobprogress", "preset", "property", "queue" },
+                    id = 1
+                },
 
-                      // Receive job events
-                      "{" +
-                        "\"jsonrpc\": \"2.0\", " +
-                        "\"method\": \"receive\", " +
-                        "\"params\": \"job\", " +
-                        "\"id\": 2" +
-                      "}, " +
+                // Receive job events
+                new {
+                    jsonrpc = "2.0",
+                    method = "receive",
+                    @params = new[] { "job" },
+                    id = 2
+                },
 
-                      // Receive job events only if they contain <is printing?> key in the <attributes> key
-                      "{" +
-                        "\"jsonrpc\": \"2.0\", " +
-                        "\"method\": \"filter\", " +
-                        "\"params\": {" +
-                                      "\"eventKind\": \"job\", " +
-                                      "\"mode\": \"add\", " +
-                                      "\"attr\": {\"attributes\": \"is printing?\"}" +
-                                    "}," +
-                        "\"id\": 3" +
-                      "}" +
-                    "]");
+                // Receive job events only if they contain <is printing?> key in the <attributes> key
+                new {
+                    jsonrpc = "2.0",
+                    method = "filter",
+                    @params = new {
+                        eventKind = "job",
+                        mode = "add",
+                        attr = new {
+                            attributes = "is printing?",
+                        },
+                    },
+                    id = 3
+                }
+            };
+
+            ws.Send(JsonConvert.SerializeObject(commandsInBatchMode));
 
             Console.ReadLine();
         }
@@ -198,6 +239,8 @@
         /// <summary>
         /// Open websocket connection, set event listeners and receive fiery events
         /// </summary>
+        /// <param name="serverAddress">The address of the wbsocket server.</param>
+        /// <param name="customHeaders">The custom headers to be passed to the websocket server.</param>
         private static void RunWebsocket(string serverAddress, List<KeyValuePair<string, string>> customHeaders)
         {
             // Create websocket object
@@ -213,12 +256,17 @@
             ws.Open();
 
             // Wait until the websocket connection is opened
-            while (ws.State != WebSocketState.Open)
-            { }
+            if (!mutex.WaitOne(TimeSpan.FromSeconds(15)))
+            {
+                return;
+            }
 
-            ReceiveFieryStatusChangeEvents();
-            ReceiveJobIsPrintingEvents();
-            ReceiveJobIsPrintingEventsBatchMode();
+            if (ws.State == WebSocketState.Open)
+            {
+                ReceiveFieryStatusChangeEvents();
+                ReceiveJobIsPrintingEvents();
+                ReceiveJobIsPrintingEventsBatchMode();
+            }
         }
 
         /// <summary>
@@ -256,16 +304,17 @@
         /// <returns>The Task<HttpClient> object with session information.</returns>
         private static async Task<HttpClient> LoginAsync(HttpClientHandler handler)
         {
-            var loginJson = new JObject();
-            loginJson["username"] = username;
-            loginJson["password"] = password;
-            loginJson["accessrights"] = apiKey;
-
             var serverAddress = string.Format(System.Globalization.CultureInfo.InvariantCulture, "https://{0}/live/api/v2/", hostname);
             var client = new HttpClient(handler);
             client.BaseAddress = new Uri(serverAddress);
 
-            var request = new StringContent(loginJson.ToString(), Encoding.UTF8, "application/json");
+            var loginJson = new
+            {
+                username = username,
+                password = password,
+                accessrights = apiKey
+            };
+            var request = new StringContent(JsonConvert.SerializeObject(loginJson), Encoding.UTF8, "application/json");
             var response = await client.PostAsync("login", request);
 
             Console.WriteLine();
