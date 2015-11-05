@@ -178,10 +178,10 @@
                     mode = "add",
                     attr = new
                     {
-                        attributes = "is printing?",
-                    },
+                        attributes = new[] {"is printing?"}
+                    }
                 },
-                id = 3,
+                id = 3
             };
             ws.Send(JsonConvert.SerializeObject(receiveIsPrintingEvents));
 
@@ -224,8 +224,8 @@
                         eventKind = "job",
                         mode = "add",
                         attr = new {
-                            attributes = "is printing?",
-                        },
+                            attributes = new[] {"is printing?"}
+                        }
                     },
                     id = 3
                 }
