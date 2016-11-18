@@ -288,7 +288,7 @@
             customeHeaders.Add(new KeyValuePair<string, string>("Cookie", cookie));
 
             // Set the websocket server address
-            var serverAddress = string.Format(System.Globalization.CultureInfo.InvariantCulture, "wss://{0}/live/api/v2/events", hostname);
+            var serverAddress = string.Format(System.Globalization.CultureInfo.InvariantCulture, "wss://{0}/live/api/v3/events", hostname);
 
             // Establish websocket connection and receive fiery events
             RunWebsocket(serverAddress, customeHeaders);
@@ -304,7 +304,7 @@
         /// <returns>The Task<HttpClient> object with session information.</returns>
         private static async Task<HttpClient> LoginAsync(HttpClientHandler handler)
         {
-            var serverAddress = string.Format(System.Globalization.CultureInfo.InvariantCulture, "https://{0}/live/api/v2/", hostname);
+            var serverAddress = string.Format(System.Globalization.CultureInfo.InvariantCulture, "https://{0}/live/api/v3/", hostname);
             var client = new HttpClient(handler);
             client.BaseAddress = new Uri(serverAddress);
 
